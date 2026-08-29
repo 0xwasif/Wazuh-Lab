@@ -213,39 +213,15 @@ iptables DROP
 100% Packet Loss
 ```
 
-### Negative Test
-
-Authentication failures were distributed across **three different machines**:
-
-```text
-Machine A → 2 failures
-Machine B → 2 failures
-Machine C → 1 failure
-```
-
-**Result:**
-
-The custom rule remained silent.
-
-This demonstrated that:
-
-```text
-same_srcip
-```
-
-requires the failures to originate from the **same source IP**, preventing unrelated authentication failures from being correlated into a brute-force alert.
-
----
 
 ## 📸 Evidence
 
 | Evidence                             | Screenshot                                                                |
 | ------------------------------------ | ------------------------------------------------------------------------- |
-| Failed SSH attempts from Kali        | [Failed attempts](https://chat.z.ai/c/screenshots/01-failed-attempts.png) |
-| Ping — 100% packet loss              | [Ping blocked](https://chat.z.ai/c/screenshots/02-ping-blocked.png)       |
-| `iptables` DROP rule on victim       | [iptables block](https://chat.z.ai/c/screenshots/03-iptables-block.png)   |
-| Alert chain `5760 → 100621 → 651`    | [Alert chain](https://chat.z.ai/c/screenshots/04-alert-chain.png)         |
-| Negative test — rule remained silent | [Negative test](https://chat.z.ai/c/screenshots/05-negative-test.png)     |
+| Failed SSH attempts from Kali        | [Failed attempts](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/01-SSH-failed-attempts.png) |
+| Ping — 100% packet loss              | [Ping blocked](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/02-ping-blocked.png)       |
+| `iptables` DROP rule on victim       | [iptables block](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/03-iptable%20table.png)   |
+| Alert chain `5760 → 100621 → 651`    | [Alert chain](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/04-Wazuh%20rule-chain.png)         |
 
 ---
 
