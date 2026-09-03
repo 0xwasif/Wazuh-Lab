@@ -130,9 +130,9 @@ The attacker IP was automatically blocked at the firewall level **without manual
 
 |  # | Screenshot                                                                              | What it shows                                      |
 | -: | --------------------------------------------------------------------------------------- | -------------------------------------------------- |
-|  1 | [Account Lockout](https://claude.ai/chat/screenshots/account-lockout.png)               | Account lockout after repeated failed RDP attempts |
-|  2 | [RDP Connection Refused](https://claude.ai/chat/screenshots/rdp-connection-refused.png) | RDP connection refused after account lockout       |
-|  3 | [Active Response Config](https://claude.ai/chat/screenshots/active-response-config.png) | `netsh` active response configuration              |
-|  4 | [Detection Rules](https://claude.ai/chat/screenshots/detection-rules.png)               | Custom rules `100070` and `100071`                 |
-|  5 | [Alert Timeline](https://claude.ai/chat/screenshots/alert-timeline.png)                 | Wazuh alert chain from detection to response       |
-|  6 | [Firewall Blocked IP](https://claude.ai/chat/screenshots/firewall-blocked-ip.png)       | Windows Firewall blocking `192.168.100.12`         |
+|  1 | [Account Lockout](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/02-RDP-Brute-Force/screenshots/account-locked.png)               | Account lockout after repeated failed RDP attempts |
+|  2 | [RDP Connection Refused](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/02-RDP-Brute-Force/screenshots/rdp-connection-refused.png) | RDP connection refused after account lockout       |
+|  3 | [Active Response Config](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/02-RDP-Brute-Force/screenshots/active-response.png) | `netsh` active response configuration              |
+|  4 | [Detection Rules](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/02-RDP-Brute-Force/screenshots/detection-rule.png)               | Custom rules `100070` and `100071`                 |
+|  5 | [Alert Timeline](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/02-RDP-Brute-Force/screenshots/alert-timeline.png)                 | Wazuh alert chain from detection to response       |
+|  6 | [Firewall Blocked IP](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/02-RDP-Brute-Force/screenshots/firewall-blocked-ip.png)       | Windows Firewall blocking `192.168.100.12`         |
