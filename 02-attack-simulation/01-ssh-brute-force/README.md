@@ -1,71 +1,38 @@
-# 🔐 SSH Brute Force Detection with Custom Rule and Active Response
+# SSH Brute Force Detection Lab — Wazuh
 
-## 📌 Overview
+This lab simulates an **SSH brute-force attack** against an Ubuntu endpoint and implements a custom Wazuh detection rule with an automated firewall response.
 
-Simulated an **SSH brute-force attack** from Kali Linux against an Ubuntu victim using manual SSH login attempts.
+**MITRE ATT&CK:** `T1110.001 — Password Guessing`
 
-A custom Wazuh rule detects **5 failed logins from the same IP within 60 seconds**, triggering an **active response** that automatically blocks the attacker via `iptables` — with **no analyst intervention**.
+## 🖥️ Setup
 
-### Attack → Detection → Response
+* **Wazuh Manager** monitoring an Ubuntu endpoint
+* Kali Linux used as the attacker
+* SSH authentication logs forwarded to Wazuh
+* Custom Wazuh rule for brute-force detection
+* `iptables` used for automated IP blocking
 
-```mermaid
-flowchart LR
+## ⚔️ Attack & Detection
 
-    KALI["Kali Linux<br/>Attacker<br/>192.168.100.128"]
-    SSH["SSH Login Attempts<br/>Wrong Password"]
-    UBUNTU["Ubuntu Server<br/>Victim<br/>192.168.100.78"]
-    RULE["Wazuh Custom Rule<br/>100621<br/>5 failures / 60s"]
-    RESPONSE["Active Response<br/>firewall-drop"]
-    IPTABLES["iptables DROP<br/>Attacker IP Blocked"]
-    ALERT["Wazuh Alert<br/>5760 → 100621 → 651"]
+The attacker repeatedly attempted to authenticate to the Ubuntu endpoint using invalid SSH credentials.
 
-    KALI --> SSH
-    SSH --> UBUNTU
-    UBUNTU --> RULE
-    RULE --> ALERT
-    ALERT --> RESPONSE
-    RESPONSE --> IPTABLES
-```
-
----
-
-## 🎯 MITRE ATT&CK
-
-| Technique             | ID          | Tactic            |
-| --------------------- | ----------- | ----------------- |
-| **Password Guessing** | `T1110.001` | Credential Access |
-
----
-
-## 🖥️ Environment
-
-| Role         | Machine                     | IP Address        |
-| ------------ | --------------------------- | ----------------- |
-| **Attacker** | Kali Linux                  | `192.168.100.128` |
-| **Target**   | Ubuntu Server — Agent `003` | `192.168.100.78`  |
-| **Manager**  | Wazuh Server — `ubuntuuser` | `[Manager IP]`    |
-
----
-
-## ⚔️ Attack Execution
-
-The attack was performed manually from Kali Linux by repeatedly attempting to authenticate to the Ubuntu victim using an incorrect password.
-
-```bash
-ssh labuser@192.168.100.78
-```
-
-Five failed authentication attempts were generated within **60 seconds**.
-
-The connection was then closed by the victim:
+A custom rule was created to detect **5 failed SSH logins from the same source IP within 60 seconds**.
 
 ```text
-Connection closed by 192.168.100.78 port 22
+Kali Linux
+    ↓
+Failed SSH Logons
+    ↓
+Rule 5760
+    ↓
+5 failures / 60 seconds
+    ↓
+Rule 100621
+    ↓
+SSH Brute Force Detected
 ```
 
----
-
-## 🧩 Custom Wazuh Rule — `100621`
+### Custom Rule
 
 ```xml
 <group name="ssh,syslog,authentication_failed,">
@@ -83,47 +50,17 @@ Connection closed by 192.168.100.78 port 22
 </group>
 ```
 
-### Rule Logic
+The rule uses:
 
-| Configuration           | Purpose                                                       |
-| ----------------------- | ------------------------------------------------------------- |
-| `frequency="5"`         | Rule triggers after 5 matching events                         |
-| `timeframe="60"`        | Events must occur within 60 seconds                           |
-| `if_matched_sid="5760"` | Chains the custom rule to the SSH authentication-failure rule |
-| `same_srcip`            | Requires all failures to originate from the same source IP    |
-| `level="10"`            | Assigns a high-severity alert level                           |
-
-### Detection Logic
-
-```text
-SSH Authentication Failure
-          ↓
-       Rule 5760
-          ↓
-   Same Source IP?
-          ↓
-   5 failures / 60s?
-          ↓
-     Rule 100621
-          ↓
-   Brute Force Detected
+```xml
+<same_srcip />
 ```
 
-### Why a Custom Rule?
+to ensure that the failures originate from the **same attacker IP**.
 
-The default Wazuh rule **5763** requires **8 authentication failures within 240 seconds**.
+## 🛡️ Active Response
 
-This custom rule tightens the threshold to:
-
-```text
-5 failures / 60 seconds
-```
-
-This provides **earlier brute-force detection** while using `same_srcip` to reduce false positives from unrelated authentication failures.
-
----
-
-## 🛡️ Active Response — Firewall Drop
+When rule `100621` fires, Wazuh triggers the `firewall-drop` active response.
 
 ```xml
 <active-response>
@@ -135,176 +72,70 @@ This provides **earlier brute-force detection** while using `same_srcip` to redu
 </active-response>
 ```
 
-### How It Works
-
-The active response executes on the **victim's Wazuh agent**, where the malicious traffic is being received.
-
-```mermaid
-flowchart LR
-
-    A["Rule 100621<br/>Triggered"] --> B["Active Response"]
-    B --> C["firewall-drop"]
-    C --> D["iptables"]
-    D --> E["Attacker IP Blocked"]
-    E --> F["60 Second Timeout"]
-    F --> G["Block Automatically Expires"]
-```
-
-The `firewall-drop` command:
-
-* Blocks the attacker's IP using `iptables`
-* Applies the response locally on the victim
-* Blocks **all traffic** from the attacker IP, not only SSH
-* Automatically removes the block after **60 seconds**
-
----
-
-## 🔗 Alert Chain Observed
-
-|  Rule ID | Alert Stage           | Description                                              |
-| -------: | --------------------- | -------------------------------------------------------- |
-|   `5760` | Attack Events         | SSH authentication failure                               |
-| `100621` | **Detection**         | 5 failed logins from `192.168.100.128` within 60 seconds |
-|    `651` | **Response Executed** | Host blocked by `firewall-drop`                          |
-
-### Complete Alert Flow
-
-```mermaid
-flowchart LR
-
-    A["5760<br/>SSH Authentication Failure"]
-    B["100621<br/>Brute Force Detection"]
-    C["firewall-drop<br/>Active Response"]
-    D["651<br/>Host Blocked"]
-
-    A --> B
-    B --> C
-    C --> D
-```
-
----
-
-## ✅ Verification
-
-### Positive Test
-
-Five manual failed SSH login attempts were generated from Kali Linux within 60 seconds.
-
-**Result:**
-
-* Rule `100621` triggered
-* Active response executed
-* Attacker IP was blocked
-* `iptables` confirmed the DROP rule
-* Ping from the attacker resulted in **100% packet loss**
-* Rule `651` confirmed the firewall response
+### Response Flow
 
 ```text
-Kali
-  ↓
-5 Failed SSH Attempts
-  ↓
-Rule 100621
-  ↓
+SSH Brute Force
+      ↓
+Wazuh Rule 100621
+      ↓
+Active Response
+      ↓
 firewall-drop
-  ↓
-iptables DROP
-  ↓
-100% Packet Loss
+      ↓
+iptables
+      ↓
+Attacker IP Blocked
+      ↓
+Block Removed After 60s
 ```
 
+The response executes on the **victim's Wazuh agent** and blocks the attacker's IP using `iptables`.
+
+## 🔗 Alert Timeline
+
+The Wazuh dashboard showed the detection and response chain:
+
+```text
+SSH Authentication Failures
+          ↓
+Rule 5760
+          ↓
+Rule 100621
+          ↓
+Brute Force Detected
+          ↓
+firewall-drop
+          ↓
+Rule 651
+          ↓
+Host Blocked
+```
+
+* **5760** → SSH authentication failure
+* **100621** → Custom brute-force detection
+* **651** → Firewall block confirmation
+
+## ✅ Result
+
+The lab successfully demonstrated:
+
+* SSH brute-force simulation
+* SSH authentication log analysis
+* Custom Wazuh rule creation
+* Same-source-IP correlation
+* MITRE ATT&CK mapping
+* Automated active response
+* `iptables` firewall blocking
+* Alert-chain verification
+
+The attacker IP was automatically blocked at the firewall level **without manual analyst intervention**.
 
 ## 📸 Evidence
 
-| Evidence                             | Screenshot                                                                |
-| ------------------------------------ | ------------------------------------------------------------------------- |
-| Failed SSH attempts from Kali        | [Failed attempts](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/01-SSH-failed-attempts.png) |
-| Ping — 100% packet loss              | [Ping blocked](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/02-ping-blocked.png)       |
-| `iptables` DROP rule on victim       | [iptables block](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/03-iptable%20table.png)   |
-| Alert chain `5760 → 100621 → 651`    | [Alert chain](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/04-Wazuh%20rule-chain.png)         |
-
----
-
-## 🧠 Lessons Learned
-
-### 1. Detection Threshold Matters
-
-Changing the detection threshold from the default:
-
-```text
-8 failures / 240 seconds
-```
-
-to:
-
-```text
-5 failures / 60 seconds
-```
-
-allows the SOC to detect brute-force activity earlier.
-
-However, tighter thresholds can increase the possibility of false positives.
-
----
-
-### 2. Source IP Correlation Reduces False Positives
-
-Using:
-
-```xml
-<same_srcip />
-```
-
-ensures that the authentication failures originate from the **same source IP**.
-
-The negative test demonstrated that failures distributed across multiple machines do not trigger the brute-force rule.
-
----
-
-### 3. Active Response Can Block More Than SSH
-
-The `firewall-drop` response operates at the **IP level**.
-
-Therefore, the response blocks the attacker IP from communicating with the victim rather than restricting the block specifically to SSH.
-
-The ping test confirmed this behavior.
-
----
-
-### 4. Response Events Are Auditable
-
-Rule `651` provided confirmation that the firewall response was executed.
-
-This creates an observable chain:
-
-```text
-Attack
-  ↓
-Detection
-  ↓
-Response
-  ↓
-Response Confirmation
-```
-
-This makes the automated response easier for an analyst to investigate and verify.
-
----
-
-## 🏁 Conclusion
-
-This lab demonstrated an end-to-end **SSH brute-force detection and automated response workflow using Wazuh**.
-
-The implementation combined:
-
-* Manual attack simulation
-* SSH authentication monitoring
-* Custom Wazuh detection rules
-* MITRE ATT&CK mapping
-* Source-IP correlation
-* Automated active response
-* `iptables` firewall blocking
-* Positive and negative validation
-* Alert-chain verification
-
-The result was an automated workflow capable of detecting and responding to SSH brute-force activity **without requiring manual analyst intervention**.
+|  # | Screenshot                                                                    | What it shows                                  |
+| -: | ----------------------------------------------------------------------------- | ---------------------------------------------- |
+|  1 | [Failed SSH Attempts](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/01-SSH-failed-attempts.png) | Repeated failed SSH authentication attempts    |
+|  2 | [Ping Blocked](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/02-ping-blocked.png)           | Attacker traffic blocked after active response |
+|  3 | [iptables Block](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/03-iptable-table.png)       | `iptables` DROP rule blocking the attacker IP  |
+|  4 | [Alert Chain](https://github.com/0xwasif/Wazuh-Lab/blob/main/02-attack-simulation/01-ssh-brute-force/screenshots/04-Wazuh-rule-chain.png)             | Wazuh alert chain `5760 → 100621 → 651`        |
